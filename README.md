@@ -10,6 +10,10 @@ No overlays are drawn, no code is injected, and nothing leaves your machine. All
 
 Requires macOS 13 or later. Download the latest DMG from [Releases](../../releases).
 
+<p align="center">
+  <img src="docs/screenshots/settings.png" width="720" alt="HabitusWin 设置窗口">
+</p>
+
 ---
 
 macOS 菜单栏常驻小工具，把三件系统不提供的操作补齐：

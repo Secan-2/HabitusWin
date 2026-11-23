@@ -39,40 +39,39 @@ final class WindowActions {
     static func quit(pid: pid_t, window: AXUIElement?) {
         guard let app = NSRunningApplication(processIdentifier: pid) else { return }
 
-        let all = realWindows(of: pid).count
         let users = userWindows(of: pid).count
-        Log.write("quit pid=\(pid) name=\(app.localizedName ?? "?") all=\(all) user=\(users)")
+        Log.write("quit pid=\(pid) name=\(app.localizedName ?? "?") user=\(users)")
 
         if users > 1 {
-            Log.write("quit -> 多窗口，改为关窗")
+            let started = CACurrentMediaTime()
             close(window)
+            Log.write("multi-window -> close, \(Int((CACurrentMediaTime() - started) * 1000))ms")
             return
         }
 
-        // 用合成的 ⌘Q 代替 Apple Event 退出请求。
-        // 前者走应用自己的菜单处理，不受自动化授权限制，也不会因为对方不响应而阻塞。
-        Log.write("send cmd-Q")
-        InputTap.shared.postKey(12, flags: .maskCommand)
-        escalate(pid: pid, checksLeft: 6)
+        quitByShortcut(pid: pid, attempt: 1)
     }
 
-    /// 每 0.2 秒用 kill(pid, 0) 探活，不做任何辅助功能调用。
-    /// 应用真退出了，第一个周期就能收手；不退的才走到 1.2 秒后的强制收尾。
-    private static func escalate(pid: pid_t, checksLeft: Int) {
-        guard processAlive(pid) else {
-            Log.write("gone after \(6 - checksLeft) ticks")
-            return
-        }
-        guard checksLeft > 0 else {
-            guard !hasBlockingDialog(pid: pid) else {
-                Log.write("blocked by sheet, stop")
+    /// 只用 ⌘Q 退出。合成按键走应用自己的菜单处理，不涉及自动化授权，
+    /// 也不会像 Apple Event 那样在对方不响应时阻塞。
+    /// 第一次按下时鼠标还没松开，事件可能被吞，所以 0.7 秒后补一次。
+    private static func quitByShortcut(pid: pid_t, attempt: Int) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            guard processAlive(pid) else {
+                Log.write("already gone before cmd-Q")
                 return
             }
-            finishOff(pid: pid)
-            return
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            escalate(pid: pid, checksLeft: checksLeft - 1)
+            Log.write("cmd-Q attempt \(attempt)")
+            InputTap.shared.postKey(12, flags: .maskCommand)
+
+            guard attempt < 2 else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                guard processAlive(pid) else {
+                    Log.write("gone after cmd-Q")
+                    return
+                }
+                quitByShortcut(pid: pid, attempt: attempt + 1)
+            }
         }
     }
 
@@ -80,37 +79,6 @@ final class WindowActions {
         errno = 0
         if kill(pid, 0) == 0 { return true }
         return errno == EPERM
-    }
-
-    private static func finishOff(pid: pid_t) {
-        guard processAlive(pid) else {
-            Log.write("finishOff: already gone")
-            return
-        }
-        errno = 0
-        let term = kill(pid, SIGTERM)
-        Log.write("sigterm ret=\(term) errno=\(errno)")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            guard processAlive(pid) else {
-                Log.write("exit after sigterm")
-                return
-            }
-            errno = 0
-            let hard = kill(pid, SIGKILL)
-            Log.write("sigkill ret=\(hard) errno=\(errno)")
-        }
-    }
-
-    private static func hasBlockingDialog(pid: pid_t) -> Bool {
-        for window in realWindows(of: pid) {
-            if let sheets = AX.attr(window, "AXSheets") as? [AXUIElement], !sheets.isEmpty {
-                return true
-            }
-            if AX.string(window, kAXSubroleAttribute) == "AXSheet" {
-                return true
-            }
-        }
-        return false
     }
 
     static func zoom(pid: pid_t, window: AXUIElement?) {

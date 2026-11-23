@@ -1,6 +1,5 @@
 import AppKit
 import ApplicationServices
-import Darwin
 
 final class WindowActions {
     private static var savedFrames: [pid_t: CGRect] = [:]
@@ -33,76 +32,27 @@ final class WindowActions {
         AX.perform(button, kAXPressAction)
     }
 
-    /// 退出应用。
-    /// 多窗口时只关当前这一个，避免一颗红按钮带走用户全部工作。
-    /// 单窗口时先发退出请求，应用不退再逐级升级，避免 Dock 上留下运行指示。
+    /// 退出应用：多窗口时只关当前这一个，避免一颗红按钮带走用户全部工作。
+    /// 只剩一个窗口时发一次 ⌘Q，交给应用自己的退出流程处理。
+    /// 部分应用的退出流程很长（例如要卸载远程磁盘、等同步任务收尾），
+    /// 从收到 ⌘Q 到真正结束可能隔着几十秒，这由应用自身决定。
     static func quit(pid: pid_t, window: AXUIElement?) {
         guard let app = NSRunningApplication(processIdentifier: pid) else { return }
-        let bundleID = app.bundleIdentifier ?? ""
 
         let users = userWindows(of: pid).count
         Log.write("quit pid=\(pid) name=\(app.localizedName ?? "?") user=\(users)")
 
         if users > 1 {
-            let started = CACurrentMediaTime()
             close(window)
-            Log.write("multi-window -> close, \(Int((CACurrentMediaTime() - started) * 1000))ms")
             return
         }
 
-        quitByShortcut(pid: pid, attempt: 1)
-
-        // 名单内的应用在 ⌘Q 后 2 秒仍未走完自己的清理链，
-        // 就结束整个应用包内的进程树，包括 Helper 与同步服务。
-        if AppSettings.shared.forceQuitBundleIDs.contains(bundleID) {
-            Log.write("force quit scheduled for \(bundleID)")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.35) {
-                Log.write("force timer fired \(bundleID)")
-                ForceQuit.terminateTree(bundleID: bundleID)
-            }
-        }
-    }
-
-    /// 只用 ⌘Q 退出。合成按键走应用自己的菜单处理，不涉及自动化授权。
-    /// 发之前先把应用激活，否则窗口不是 key window 时按键会被丢掉，QQ 音乐就是这种情况。
-    private static func quitByShortcut(pid: pid_t, attempt: Int) {
-        // 激活到窗口真正成为 key window 需要一点时间，实测 0.1 秒不够，0.35 秒稳定。
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-            guard processAlive(pid) else {
-                Log.write("already gone before cmd-Q")
-                return
-            }
-            NSRunningApplication(processIdentifier: pid)?.activate(options: [])
+            // 窗口不是 key window 时按键会被丢掉，先激活再发。
+            app.activate(options: [])
             InputTap.shared.postKey(12, flags: .maskCommand)
-            Log.write("cmd-Q #\(attempt) sent")
-            watchExit(pid: pid, sent: CACurrentMediaTime(), attempt: attempt, ticks: 14)
+            Log.write("cmd-Q sent")
         }
-    }
-
-    /// 每 50 毫秒探活一次，退出耗时按实际时间记录；0.7 秒还没退才重发一次。
-    private static func watchExit(pid: pid_t, sent: Double, attempt: Int, ticks: Int) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            if !processAlive(pid) {
-                let cost = (CACurrentMediaTime() - sent) * 1000
-                Log.write(String(format: "gone %.0fms after cmd-Q #%d", cost, attempt))
-                return
-            }
-            guard ticks > 0 else {
-                guard attempt < 2 else {
-                    Log.write("still alive after 2 attempts")
-                    return
-                }
-                quitByShortcut(pid: pid, attempt: attempt + 1)
-                return
-            }
-            watchExit(pid: pid, sent: sent, attempt: attempt, ticks: ticks - 1)
-        }
-    }
-
-    private static func processAlive(_ pid: pid_t) -> Bool {
-        errno = 0
-        if kill(pid, 0) == 0 { return true }
-        return errno == EPERM
     }
 
     static func zoom(pid: pid_t, window: AXUIElement?) {

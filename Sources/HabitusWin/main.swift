@@ -1,17 +1,11 @@
 import AppKit
 
-if CommandLine.arguments.contains("--test-force") {
-    let bundleID = CommandLine.arguments.dropFirst().first(where: { $0 != "--test-force" })
-        ?? "com.zentraedi.zspaceMacApp"
-    ForceQuit.terminateTree(bundleID: bundleID)
-    RunLoop.main.run(until: Date().addingTimeInterval(1))
-    exit(0)
-}
-
 if CommandLine.arguments.contains("--test-quit"),
    let idx = CommandLine.arguments.firstIndex(of: "--test-quit"),
    idx + 1 < CommandLine.arguments.count,
    let target = pid_t(CommandLine.arguments[idx + 1]) {
+    let app = NSApplication.shared
+    app.setActivationPolicy(.accessory)
     WindowActions.quit(pid: target, window: nil)
     RunLoop.main.run(until: Date().addingTimeInterval(4))
     print("test-quit finished")

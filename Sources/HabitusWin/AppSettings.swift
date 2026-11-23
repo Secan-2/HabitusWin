@@ -58,7 +58,6 @@ enum SettingsKey {
     static let dockEnabled = "dock.enabled"
     static let dockAction = "dock.action"
     static let dockPrecise = "dock.precise"
-    static let forceQuitBundleIDs = "quit.forceBundleIDs"
 }
 
 final class AppSettings: ObservableObject {
@@ -114,11 +113,6 @@ final class AppSettings: ObservableObject {
         didSet { persist(dockPrecise, SettingsKey.dockPrecise); changes.send() }
     }
 
-    /// ⌘Q 超时后强制结束进程树的应用名单。默认只含极空间，其退出钩子会阻塞数十秒。
-    @Published var forceQuitBundleIDs: Set<String> {
-        didSet { persist(Array(forceQuitBundleIDs), SettingsKey.forceQuitBundleIDs); changes.send() }
-    }
-
     /// 红色按钮设为「退出应用」时，访达等系统常驻应用保持原生行为。
     private init() {
         Self.migrateLegacyPreferencesIfNeeded()
@@ -155,8 +149,6 @@ final class AppSettings: ObservableObject {
         dockEnabled = Self.readBool(SettingsKey.dockEnabled, default: false)
         dockAction = DockClickAction(rawValue: Self.readString(SettingsKey.dockAction, default: "minimizeFrontWindow")) ?? .minimizeFrontWindow
         dockPrecise = Self.readBool(SettingsKey.dockPrecise, default: true)
-        forceQuitBundleIDs = Set(Self.readStringArray(SettingsKey.forceQuitBundleIDs,
-                                                     default: Array(ForceQuit.defaultBundleIDs)))
     }
 
     private func persist(_ value: Any, _ key: String) {
@@ -185,10 +177,6 @@ final class AppSettings: ObservableObject {
 
     private static func readInt(_ key: String, default fallback: Int) -> Int {
         UserDefaults.standard.object(forKey: key) as? Int ?? fallback
-    }
-
-    private static func readStringArray(_ key: String, default fallback: [String]) -> [String] {
-        UserDefaults.standard.array(forKey: key) as? [String] ?? fallback
     }
 
     /// 从旧名字 TrafficPilot 迁移偏好设置，改名不至于让用户重新配一遍。

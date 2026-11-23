@@ -22,7 +22,6 @@ macOS 菜单栏常驻小工具，把三件系统不提供的操作补齐：
 2. Finder 真正的 ⌘X 剪切，剪切时播放音效。
 3. 再次点击已在前台应用的 Dock 图标，在收起与展开之间切换。
 4. 开机自动启动，走 macOS 13 的 SMAppService，条目登记在系统登录项里。
-4. 开机自动启动，走 macOS 13 的 SMAppService，条目登记在系统登录项里。
 
 ## 下载
 
@@ -32,9 +31,13 @@ macOS 菜单栏常驻小工具，把三件系统不提供的操作补齐：
 
 ```bash
 cd HabitusWin
-./build.sh          # 产出 dist/HabitusWin.app，通用二进制
+./build.sh              # 产出 dist/HabitusWin.app，通用二进制
+./Tools/make-dmg.sh     # 打成 dist/HabitusWin-x.y.z.dmg
 open dist/HabitusWin.app
 ```
+
+推一个 `v*` 标签会触发 GitHub Actions，在 macOS 上重新构建并把这个 DMG 挂到 Release 上，不需要本地打好的包。
+版本号只认 `Info.plist` 里的 `CFBundleShortVersionString`，打标签前把它改好。
 
 发布包 `dist/HabitusWin-x.y.z.dmg` 内含 `安装.command`。它做三件手工安装容易漏的事：
 复制到 /Applications、用 `lsregister -f -R -trusted` 注册到 LaunchServices、重启 Dock 刷新启动台缓存。

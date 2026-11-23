@@ -6,6 +6,15 @@ enum LightKind: String, CaseIterable {
     case close
     case minimize
     case zoom
+
+    init?(subrole: String) {
+        switch subrole {
+        case "AXCloseButton": self = .close
+        case "AXMinimizeButton": self = .minimize
+        case "AXFullScreenButton", "AXZoomButton": self = .zoom
+        default: return nil
+        }
+    }
 }
 
 /// 红绿灯改行为的实现：不画任何覆盖层，直接吞掉落在按钮上的点击，再执行映射后的动作。
@@ -72,18 +81,22 @@ final class WindowClickModule {
         guard point.x >= frame.minX - 2, point.x <= frame.minX + 92,
               point.y >= frame.minY - 2, point.y <= frame.minY + 34 else { return false }
 
-        guard let element = AX.element(at: point),
-              let subrole = AX.string(element, kAXSubroleAttribute) else { return false }
+        let element = AX.element(at: point)
+        let subrole = element.flatMap { AX.string($0, kAXSubroleAttribute) } ?? ""
 
+        guard let window = element.flatMap(enclosingWindow) ?? cachedWindow else { return false }
+
+        // 先按命中元素的子角色判断。少数应用命中会返回 AXUnknown，
+        // 例如 QQ 音乐，此时退回用窗口自身三个按钮的矩形做几何比对。
         let kind: LightKind
-        switch subrole {
-        case "AXCloseButton": kind = .close
-        case "AXMinimizeButton": kind = .minimize
-        case "AXFullScreenButton", "AXZoomButton": kind = .zoom
-        default: return false
+        if let bySubrole = LightKind(subrole: subrole) {
+            kind = bySubrole
+        } else if let byFrame = lightKind(at: point, in: window) {
+            Log.write("hit fallback by frame sub=\(subrole) kind=\(byFrame.rawValue)")
+            kind = byFrame
+        } else {
+            return false
         }
-
-        guard let window = enclosingWindow(of: element) ?? cachedWindow else { return false }
         guard AX.bool(window, "AXFullScreen") != true else { return false }
 
         let action = settings.action(for: kind)
@@ -126,6 +139,23 @@ final class WindowClickModule {
         cachedFrame = frame
         cacheStamp = now
         return frame
+    }
+
+    /// 用窗口自带的三个按钮矩形做兜底判断，命中范围外扩 4pt 容错。
+    private func lightKind(at point: CGPoint, in window: AXUIElement) -> LightKind? {
+        let candidates: [(String, LightKind)] = [
+            (kAXCloseButtonAttribute, .close),
+            (kAXMinimizeButtonAttribute, .minimize),
+            (kAXFullScreenButtonAttribute, .zoom),
+            ("AXZoomButton", .zoom)
+        ]
+        for (attribute, kind) in candidates {
+            guard let button = AX.element(window, attribute), let frame = AX.frame(button) else { continue }
+            if frame.insetBy(dx: -4, dy: -4).contains(point) {
+                return kind
+            }
+        }
+        return nil
     }
 
     private func enclosingWindow(of element: AXUIElement) -> AXUIElement? {

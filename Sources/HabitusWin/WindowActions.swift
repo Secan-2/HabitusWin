@@ -49,10 +49,10 @@ final class WindowActions {
             return
         }
 
-        // 发的是 Apple Event，目标应用不响应时会阻塞到协议超时，必须丢到后台。
-        DispatchQueue.global(qos: .userInitiated).async {
-            app.terminate()
-        }
+        // 用合成的 ⌘Q 代替 Apple Event 退出请求。
+        // 前者走应用自己的菜单处理，不受自动化授权限制，也不会因为对方不响应而阻塞。
+        Log.write("send cmd-Q")
+        InputTap.shared.postKey(12, flags: .maskCommand)
         escalate(pid: pid, checksLeft: 6)
     }
 

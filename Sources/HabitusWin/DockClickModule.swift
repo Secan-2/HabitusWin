@@ -43,7 +43,7 @@ final class DockClickModule {
     /// 也不能把 AXWindows 全量代入判断，访达的桌面窗口永远不可最小化。
     private func toggle(app: NSRunningApplication) -> Bool {
         let pid = app.processIdentifier
-        let windows = WindowActions.realWindows(of: pid)
+        let windows = WindowActions.userWindows(of: pid)
         guard !windows.isEmpty || app.isHidden else { return false }
 
         let allMinimized = !windows.isEmpty

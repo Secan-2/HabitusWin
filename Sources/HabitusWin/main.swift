@@ -1,5 +1,15 @@
 import AppKit
 
+if CommandLine.arguments.contains("--test-quit"),
+   let idx = CommandLine.arguments.firstIndex(of: "--test-quit"),
+   idx + 1 < CommandLine.arguments.count,
+   let target = pid_t(CommandLine.arguments[idx + 1]) {
+    WindowActions.quit(pid: target, window: nil)
+    RunLoop.main.run(until: Date().addingTimeInterval(4))
+    print("test-quit finished")
+    exit(0)
+}
+
 if CommandLine.arguments.contains("--test-login") {
     let enable = CommandLine.arguments.contains("--on")
     print("before:", LaunchAtLogin.isEnabled)

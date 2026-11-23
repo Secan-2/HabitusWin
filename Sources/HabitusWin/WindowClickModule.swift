@@ -92,6 +92,7 @@ final class WindowClickModule {
             return false
         }
 
+        Log.write("click app=\(bundleID) sub=\(subrole) action=\(action.rawValue) user=\(WindowActions.userWindows(of: pid).count)")
         WindowActions.apply(action, pid: pid, window: window)
         invalidateCache()
         return true

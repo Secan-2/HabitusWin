@@ -39,7 +39,12 @@ final class WindowActions {
     static func quit(pid: pid_t, window: AXUIElement?) {
         guard let app = NSRunningApplication(processIdentifier: pid) else { return }
 
-        if realWindows(of: pid).count > 1 {
+        let all = realWindows(of: pid).count
+        let users = userWindows(of: pid).count
+        Log.write("quit pid=\(pid) name=\(app.localizedName ?? "?") all=\(all) user=\(users)")
+
+        if users > 1 {
+            Log.write("quit -> 多窗口，改为关窗")
             close(window)
             return
         }
@@ -56,6 +61,8 @@ final class WindowActions {
     /// 窗口已经清空但进程还赖着，0.6 秒就收尾；还有窗口的应用给满 1.2 秒。
     private static func escalate(app: NSRunningApplication, pid: pid_t, checksLeft: Int) {
         let elapsedSteps = 6 - checksLeft
+
+        Log.write("tick left=\(checksLeft) done=\(app.isTerminated) user=\(userWindows(of: pid).count)")
 
         // 没有窗口就说明没有保存确认在等着，可以直接收尾
         if elapsedSteps >= 3, realWindows(of: pid).isEmpty {
@@ -76,9 +83,15 @@ final class WindowActions {
     }
 
     private static func finishOff(app: NSRunningApplication, pid: pid_t) {
-        kill(pid, SIGTERM)
+        errno = 0
+        let term = kill(pid, SIGTERM)
+        Log.write("sigterm ret=\(term) errno=\(errno)")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            if !app.isTerminated { kill(pid, SIGKILL) }
+            if !app.isTerminated {
+                errno = 0
+                let hard = kill(pid, SIGKILL)
+                Log.write("sigkill ret=\(hard) errno=\(errno)")
+            }
         }
     }
 
@@ -133,6 +146,17 @@ final class WindowActions {
         AXUIElementSetMessagingTimeout(app, 0.4)
         guard let value = AX.attr(app, kAXWindowsAttribute) else { return [] }
         return (value as? [AXUIElement]) ?? []
+    }
+
+    /// 只保留真正给用户看的窗口。有些应用会把零尺寸的隐藏窗口塞进 AXWindows，
+    /// 用它判断「有几个窗口」会误判成多窗口，从而把退出降级成关窗。
+    static func userWindows(of pid: pid_t) -> [AXUIElement] {
+        realWindows(of: pid).filter { window in
+            let subrole = AX.string(window, kAXSubroleAttribute) ?? ""
+            if subrole == "AXUnknown" { return false }
+            guard let frame = AX.frame(window) else { return false }
+            return frame.width >= 100 && frame.height >= 100
+        }
     }
 
     /// 访达会把桌面作为一个 AXScrollArea / AXDesktop 放进窗口列表，

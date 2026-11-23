@@ -444,7 +444,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
                 hint
             ]),
             ("隐私", [
-                footnote("窗口位置与键盘事件仅在本机内存中处理，不写日志、不联网。"),
+                footnote("窗口位置与键盘事件仅在本机处理。退出与点击判定会写一条本地日志到 ~/Library/Logs/HabitusWin.log，只含应用名与耗时，不上传。"),
                 footnote("菜单栏图标左键打开本窗口，右键打开开关菜单。"),
                 footnote("版本 \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "未知")")
             ])

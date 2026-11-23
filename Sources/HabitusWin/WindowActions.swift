@@ -45,16 +45,16 @@ final class WindowActions {
         }
 
         app.terminate()
-        escalate(app: app, pid: pid, checksLeft: 5)
+        escalate(app: app, pid: pid, checksLeft: 7)
     }
 
-    /// 每秒三次检查，1.5 秒仍未退出才干预。
-    /// 只要应用还有窗口，说明可能停在保存确认上，此时不打断用户。
+    /// 每秒三次检查，2 秒仍未退出才干预。
+    /// 只要应用挂着保存确认这类 sheet，就不打断用户。
     private static func escalate(app: NSRunningApplication, pid: pid_t, checksLeft: Int) {
         guard checksLeft > 0 else {
-            guard realWindows(of: pid).isEmpty else { return }
+            guard !hasBlockingDialog(pid: pid) else { return }
             kill(pid, SIGTERM)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                 if !app.isTerminated { kill(pid, SIGKILL) }
             }
             return
@@ -63,6 +63,19 @@ final class WindowActions {
             guard !app.isTerminated else { return }
             escalate(app: app, pid: pid, checksLeft: checksLeft - 1)
         }
+    }
+
+    private static func hasBlockingDialog(pid: pid_t) -> Bool {
+        for window in realWindows(of: pid) {
+            if let sheets = AX.attr(window, "AXSheets") as? [AXUIElement], !sheets.isEmpty {
+                return true
+            }
+            let role = AX.string(window, kAXRoleAttribute) ?? ""
+            if role == "AXSheet" || role == "AXDialog" {
+                return true
+            }
+        }
+        return false
     }
 
     static func zoom(pid: pid_t, window: AXUIElement?) {

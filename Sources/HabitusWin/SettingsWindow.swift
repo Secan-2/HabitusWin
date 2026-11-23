@@ -297,7 +297,8 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
                 row("红色按钮", control: red),
                 row("黄色按钮", control: yellow),
                 row("绿色按钮", control: green),
-                footnote("红色按钮设成「退出应用」时，访达这类系统常驻应用与没有 Dock 图标的菜单栏应用会保持系统原生行为，点击原样交给系统。")
+                footnote("红色按钮设成「退出应用」时，访达这类系统常驻应用与没有 Dock 图标的菜单栏应用会保持系统原生行为，点击原样交给系统。"),
+                footnote("应用还开着其它窗口时，点红色只关闭当前窗口，最后一个窗口才触发退出。")
             ]),
             ("说明", [
                 footnote("红色设为「退出应用」不会替你保存文档，是否丢弃未保存改动由目标应用决定。"),
@@ -419,8 +420,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
         let page = makePage([
             ("开始使用", [
                 footnote("三个功能默认全部关闭，装好后系统行为与原来完全一致。"),
-                footnote("需要哪个功能，就到对应页面把开关打开。系统随后会弹出授权请求，点「打开系统设置」再勾选 HabitusWin。"),
-                footnote("注意：应用没有主动请求过之前，不会出现在辅助功能列表里，直接去系统设置是找不到的。")
+                footnote("需要哪个功能，就到对应页面把开关打开。系统随后会弹出授权请求，点「打开系统设置」再勾选 HabitusWin。")
             ]),
             ("权限", [
                 row("辅助功能", subtitle: "读取窗口按钮位置、执行窗口操作、拦截键盘事件都依赖这个权限。", control: status),
@@ -436,7 +436,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
             ("隐私", [
                 footnote("窗口位置与键盘事件仅在本机内存中处理，不写日志、不联网。"),
                 footnote("菜单栏图标左键打开本窗口，右键打开开关菜单。"),
-                footnote("版本 0.1.2")
+                footnote("版本 \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "未知")")
             ])
         ])
         refreshPermissionState()

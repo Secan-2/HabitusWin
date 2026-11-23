@@ -80,7 +80,7 @@ final class DockClickModule {
             _ = app.unhide()
         }
         for window in windows where AX.bool(window, kAXMinimizedAttribute) == true {
-            WindowActions.minimize(window, false)
+            _ = WindowActions.minimize(window, false)
         }
         app.activate(options: [.activateAllWindows])
         return true

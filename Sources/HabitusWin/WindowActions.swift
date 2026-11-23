@@ -38,6 +38,7 @@ final class WindowActions {
     /// 单窗口时先发退出请求，应用不退再逐级升级，避免 Dock 上留下运行指示。
     static func quit(pid: pid_t, window: AXUIElement?) {
         guard let app = NSRunningApplication(processIdentifier: pid) else { return }
+        let bundleID = app.bundleIdentifier ?? ""
 
         let users = userWindows(of: pid).count
         Log.write("quit pid=\(pid) name=\(app.localizedName ?? "?") user=\(users)")
@@ -50,6 +51,16 @@ final class WindowActions {
         }
 
         quitByShortcut(pid: pid, attempt: 1)
+
+        // 名单内的应用在 ⌘Q 后 2 秒仍未走完自己的清理链，
+        // 就结束整个应用包内的进程树，包括 Helper 与同步服务。
+        if AppSettings.shared.forceQuitBundleIDs.contains(bundleID) {
+            Log.write("force quit scheduled for \(bundleID)")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.35) {
+                Log.write("force timer fired \(bundleID)")
+                ForceQuit.terminateTree(bundleID: bundleID)
+            }
+        }
     }
 
     /// 只用 ⌘Q 退出。合成按键走应用自己的菜单处理，不涉及自动化授权。

@@ -289,6 +289,12 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
         let yellow = popUp(WindowButtonAction.allCases.map(\.title), index(of: settings.yellowAction), #selector(changeYellow))
         let green = popUp(WindowButtonAction.allCases.map(\.title), index(of: settings.greenAction), #selector(changeGreen))
 
+        let forceList = NSTextField(string: settings.forceQuitBundleIDs.sorted().joined(separator: ", "))
+        forceList.font = .systemFont(ofSize: 11)
+        forceList.target = self
+        forceList.action = #selector(commitForceList)
+        forceList.widthAnchor.constraint(equalToConstant: 230).isActive = true
+
         return makePage([
             ("接管", [
                 row("接管窗口红绿灯",
@@ -299,6 +305,9 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
                 row("红色按钮", control: red),
                 row("黄色按钮", control: yellow),
                 row("绿色按钮", control: green)
+            ]),
+            ("强制结束", [
+                row("名单", subtitle: "填入 bundle id，多个用逗号分隔。名单内应用发出 ⌘Q 后 2 秒仍未退出，会结束整个进程树，可能丢失未保存的数据。", control: forceList)
             ]),
             ("说明", [
                 footnote("红色按钮设成「退出应用」时，访达这类系统常驻应用与没有 Dock 图标的菜单栏应用会保持系统原生行为，点击原样交给系统。"),
@@ -556,6 +565,14 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
 
     @objc private func changeGreen(_ sender: NSPopUpButton) {
         settings.greenAction = WindowButtonAction.allCases[sender.indexOfSelectedItem]
+    }
+
+    @objc private func commitForceList(_ sender: NSTextField) {
+        let ids = sender.stringValue.split(separator: ",").map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }.filter { !$0.isEmpty }
+        settings.forceQuitBundleIDs = Set(ids)
+        sender.stringValue = settings.forceQuitBundleIDs.sorted().joined(separator: ", ")
     }
 
     @objc private func toggleLaunchAtLogin(_ sender: NSSwitch) {

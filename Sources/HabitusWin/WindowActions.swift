@@ -49,49 +49,55 @@ final class WindowActions {
             return
         }
 
-        // terminate 发的是 Apple Event，目标应用不响应时会一路阻塞到协议超时，
-        // 默认能卡住调用方几十秒。必须丢到后台，否则主线程和升级计时一起被拖死。
+        // 发的是 Apple Event，目标应用不响应时会阻塞到协议超时，必须丢到后台。
         DispatchQueue.global(qos: .userInitiated).async {
             app.terminate()
         }
-        escalate(app: app, pid: pid, checksLeft: 6)
+        escalate(pid: pid, checksLeft: 6)
     }
 
-    /// 每秒五次检查。
-    /// 窗口已经清空但进程还赖着，0.6 秒就收尾；还有窗口的应用给满 1.2 秒。
-    private static func escalate(app: NSRunningApplication, pid: pid_t, checksLeft: Int) {
-        let elapsedSteps = 6 - checksLeft
-
-        Log.write("tick left=\(checksLeft) done=\(app.isTerminated) user=\(userWindows(of: pid).count)")
-
-        // 没有窗口就说明没有保存确认在等着，可以直接收尾
-        if elapsedSteps >= 3, realWindows(of: pid).isEmpty {
-            finishOff(app: app, pid: pid)
+    /// 每 0.2 秒用 kill(pid, 0) 探活，不做任何辅助功能调用。
+    /// 应用真退出了，第一个周期就能收手；不退的才走到 1.2 秒后的强制收尾。
+    private static func escalate(pid: pid_t, checksLeft: Int) {
+        guard processAlive(pid) else {
+            Log.write("gone after \(6 - checksLeft) ticks")
             return
         }
-
         guard checksLeft > 0 else {
-            guard !hasBlockingDialog(pid: pid) else { return }
-            finishOff(app: app, pid: pid)
+            guard !hasBlockingDialog(pid: pid) else {
+                Log.write("blocked by sheet, stop")
+                return
+            }
+            finishOff(pid: pid)
             return
         }
-
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            guard !app.isTerminated else { return }
-            escalate(app: app, pid: pid, checksLeft: checksLeft - 1)
+            escalate(pid: pid, checksLeft: checksLeft - 1)
         }
     }
 
-    private static func finishOff(app: NSRunningApplication, pid: pid_t) {
+    private static func processAlive(_ pid: pid_t) -> Bool {
+        errno = 0
+        if kill(pid, 0) == 0 { return true }
+        return errno == EPERM
+    }
+
+    private static func finishOff(pid: pid_t) {
+        guard processAlive(pid) else {
+            Log.write("finishOff: already gone")
+            return
+        }
         errno = 0
         let term = kill(pid, SIGTERM)
         Log.write("sigterm ret=\(term) errno=\(errno)")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            if !app.isTerminated {
-                errno = 0
-                let hard = kill(pid, SIGKILL)
-                Log.write("sigkill ret=\(hard) errno=\(errno)")
+            guard processAlive(pid) else {
+                Log.write("exit after sigterm")
+                return
             }
+            errno = 0
+            let hard = kill(pid, SIGKILL)
+            Log.write("sigkill ret=\(hard) errno=\(errno)")
         }
     }
 

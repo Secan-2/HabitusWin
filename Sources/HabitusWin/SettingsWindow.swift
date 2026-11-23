@@ -256,6 +256,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
         label.font = .systemFont(ofSize: 11)
         label.textColor = .secondaryLabelColor
         label.preferredMaxLayoutWidth = 470
+        label.isSelectable = true
         label.setContentHuggingPriority(.init(999), for: .vertical)
         return label
     }
@@ -296,12 +297,11 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
             ("按钮动作", [
                 row("红色按钮", control: red),
                 row("黄色按钮", control: yellow),
-                row("绿色按钮", control: green),
-                footnote("红色按钮设成「退出应用」时，访达这类系统常驻应用与没有 Dock 图标的菜单栏应用会保持系统原生行为，点击原样交给系统。"),
-                footnote("应用还开着其它窗口时，点红色只关闭当前窗口，最后一个窗口才触发退出。")
+                row("绿色按钮", control: green)
             ]),
             ("说明", [
-                footnote("红色设为「退出应用」不会替你保存文档，是否丢弃未保存改动由目标应用决定。"),
+                footnote("红色按钮设成「退出应用」时，访达这类系统常驻应用与没有 Dock 图标的菜单栏应用会保持系统原生行为，点击原样交给系统。"),
+                footnote("应用还开着其它窗口时，点红色只关闭当前窗口，最后一个窗口才触发退出。"),
                 footnote("绿色设为「缩放窗口」时使用可见桌面区域，与原生的按住 ⌥ 点击行为接近。"),
                 footnote("自绘标题栏、或未向辅助功能暴露标准按钮的应用不会被接管，此时点击仍走系统默认行为。")
             ])
@@ -427,10 +427,6 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
                 row("开机时自动启动",
                     subtitle: "登录系统后自动运行，只驻留菜单栏。应用需要放在「应用程序」文件夹里。",
                     control: loginSwitch)
-            ]),
-            ("开始使用", [
-                footnote("三个功能默认全部关闭，装好后系统行为与原来完全一致。"),
-                footnote("需要哪个功能，就到对应页面把开关打开。系统随后会弹出授权请求，点「打开系统设置」再勾选 HabitusWin。")
             ]),
             ("权限", [
                 row("辅助功能", subtitle: "读取窗口按钮位置、执行窗口操作、拦截键盘事件都依赖这个权限。", control: status),

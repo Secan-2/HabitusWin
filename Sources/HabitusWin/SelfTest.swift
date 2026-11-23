@@ -19,6 +19,7 @@ enum SelfTest {
         let tapStarted = InputTap.shared.start()
         print("tap start attempt: \(tapStarted) error=\(InputTap.shared.lastError ?? "-")")
         InputTap.shared.stop()
+        print("locales: \(Bundle.main.preferredLocalizations) available=\(Bundle.main.localizations)")
         print("sound: \(Bundle.main.url(forResource: "Snip", withExtension: "wav")?.lastPathComponent ?? "missing")")
 
         // 按 16 倍渲染，位图与画布 1:1，能看出真实的矢量边缘

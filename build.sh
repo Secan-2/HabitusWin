@@ -21,6 +21,7 @@ cp "$BIN" "$APP/Contents/MacOS/HabitusWin"
 cp Info.plist "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp Resources/Snip.wav "$APP/Contents/Resources/Snip.wav"
+cp -R Resources/zh-Hans.lproj "$APP/Contents/Resources/zh-Hans.lproj"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 codesign --force --sign - --timestamp=none "$APP" >/dev/null 2>&1 || \

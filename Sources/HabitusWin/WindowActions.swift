@@ -52,26 +52,39 @@ final class WindowActions {
         quitByShortcut(pid: pid, attempt: 1)
     }
 
-    /// 只用 ⌘Q 退出。合成按键走应用自己的菜单处理，不涉及自动化授权，
-    /// 也不会像 Apple Event 那样在对方不响应时阻塞。
-    /// 第一次按下时鼠标还没松开，事件可能被吞，所以 0.7 秒后补一次。
+    /// 只用 ⌘Q 退出。合成按键走应用自己的菜单处理，不涉及自动化授权。
+    /// 发之前先把应用激活，否则窗口不是 key window 时按键会被丢掉，QQ 音乐就是这种情况。
     private static func quitByShortcut(pid: pid_t, attempt: Int) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        // 激活到窗口真正成为 key window 需要一点时间，实测 0.1 秒不够，0.35 秒稳定。
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
             guard processAlive(pid) else {
                 Log.write("already gone before cmd-Q")
                 return
             }
-            Log.write("cmd-Q attempt \(attempt)")
+            NSRunningApplication(processIdentifier: pid)?.activate(options: [])
             InputTap.shared.postKey(12, flags: .maskCommand)
+            Log.write("cmd-Q #\(attempt) sent")
+            watchExit(pid: pid, sent: CACurrentMediaTime(), attempt: attempt, ticks: 14)
+        }
+    }
 
-            guard attempt < 2 else { return }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
-                guard processAlive(pid) else {
-                    Log.write("gone after cmd-Q")
+    /// 每 50 毫秒探活一次，退出耗时按实际时间记录；0.7 秒还没退才重发一次。
+    private static func watchExit(pid: pid_t, sent: Double, attempt: Int, ticks: Int) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            if !processAlive(pid) {
+                let cost = (CACurrentMediaTime() - sent) * 1000
+                Log.write(String(format: "gone %.0fms after cmd-Q #%d", cost, attempt))
+                return
+            }
+            guard ticks > 0 else {
+                guard attempt < 2 else {
+                    Log.write("still alive after 2 attempts")
                     return
                 }
                 quitByShortcut(pid: pid, attempt: attempt + 1)
+                return
             }
+            watchExit(pid: pid, sent: sent, attempt: attempt, ticks: ticks - 1)
         }
     }
 

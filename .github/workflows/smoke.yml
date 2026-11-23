@@ -1,9 +1,0 @@
-name: Smoke
-on:
-  push:
-    branches: [main]
-jobs:
-  mac:
-    runs-on: macos-latest
-    steps:
-      - run: sw_vers

@@ -11,18 +11,23 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+
+      # 标签与 Info.plist 必须一致，否则包里版本和 Release 对不上
+      - name: Check version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          plist=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Info.plist)
+          echo "tag=$tag plist=$plist"
+          [ "$tag" = "$plist" ] || { echo "版本不一致：标签 $tag，Info.plist $plist"; exit 1; }
 
       - name: Build app
         run: ./build.sh
 
       - name: Package DMG
         run: ./Tools/make-dmg.sh
-
-      - name: Show artifact
-        run: ls -lh dist/*.dmg
 
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/')

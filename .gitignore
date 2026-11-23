@@ -6,3 +6,4 @@ dmg/
 .DS_Store
 *.xcuserstate
 *.xcodeproj/xcuserdata/
+build.log

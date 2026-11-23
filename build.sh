@@ -9,10 +9,15 @@ APP="dist/HabitusWin.app"
 LOG="build.log"
 : > "$LOG"
 
+# 产物路径必须与构建时用的参数一致：带 --arch 的通用构建放在
+# .build/out/Products/Release，不带 arch 的放在 .build/<triple>/release。
+ARCH_ARGS=(--arch arm64 --arch x86_64)
+
 echo "==> building ($CONFIG)"
-if ! swift build -c "$CONFIG" --disable-sandbox --arch arm64 --arch x86_64 >>"$LOG" 2>&1; then
+if ! swift build -c "$CONFIG" --disable-sandbox "${ARCH_ARGS[@]}" >>"$LOG" 2>&1; then
   echo "==> universal build unavailable, building native arch only"
   printf '\n==> universal build unavailable, retrying native arch\n' >>"$LOG"
+  ARCH_ARGS=()
   if ! swift build -c "$CONFIG" --disable-sandbox >>"$LOG" 2>&1; then
     echo "!! build failed, last lines of $LOG:"
     tail -40 "$LOG"
@@ -20,8 +25,15 @@ if ! swift build -c "$CONFIG" --disable-sandbox --arch arm64 --arch x86_64 >>"$L
   fi
 fi
 
-BIN_DIR="$(swift build -c "$CONFIG" --disable-sandbox --show-bin-path 2>/dev/null | tail -1)"
+BIN_DIR="$(swift build -c "$CONFIG" --disable-sandbox "${ARCH_ARGS[@]}" --show-bin-path 2>/dev/null | tail -1)"
 BIN="$BIN_DIR/HabitusWin"
+echo "==> binary: $BIN"
+
+if [ ! -x "$BIN" ]; then
+  echo "!! 找不到构建产物 $BIN"
+  find .build -maxdepth 4 -name HabitusWin -type f 2>/dev/null | head -5
+  exit 1
+fi
 
 echo "==> assembling bundle"
 rm -rf "$APP"

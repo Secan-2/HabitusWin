@@ -44,7 +44,11 @@ final class WindowActions {
             return
         }
 
-        app.terminate()
+        // terminate 发的是 Apple Event，目标应用不响应时会一路阻塞到协议超时，
+        // 默认能卡住调用方几十秒。必须丢到后台，否则主线程和升级计时一起被拖死。
+        DispatchQueue.global(qos: .userInitiated).async {
+            app.terminate()
+        }
         escalate(app: app, pid: pid, checksLeft: 6)
     }
 

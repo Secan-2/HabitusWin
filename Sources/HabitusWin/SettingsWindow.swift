@@ -417,7 +417,17 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
         secondButtons.spacing = 8
         secondButtons.setContentHuggingPriority(.init(800), for: .horizontal)
 
+        let loginSwitch = NSSwitch()
+        loginSwitch.state = LaunchAtLogin.isEnabled ? .on : .off
+        loginSwitch.target = self
+        loginSwitch.action = #selector(toggleLaunchAtLogin)
+
         let page = makePage([
+            ("启动", [
+                row("开机时自动启动",
+                    subtitle: "登录系统后自动运行，只驻留菜单栏。应用需要放在「应用程序」文件夹里。",
+                    control: loginSwitch)
+            ]),
             ("开始使用", [
                 footnote("三个功能默认全部关闭，装好后系统行为与原来完全一致。"),
                 footnote("需要哪个功能，就到对应页面把开关打开。系统随后会弹出授权请求，点「打开系统设置」再勾选 HabitusWin。")
@@ -547,6 +557,18 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
 
     @objc private func changeGreen(_ sender: NSPopUpButton) {
         settings.greenAction = WindowButtonAction.allCases[sender.indexOfSelectedItem]
+    }
+
+    @objc private func toggleLaunchAtLogin(_ sender: NSSwitch) {
+        let wanted = sender.state == .on
+        if let message = LaunchAtLogin.set(wanted) {
+            sender.state = wanted ? .off : .on
+            let alert = NSAlert()
+            alert.messageText = "无法修改开机启动"
+            alert.informativeText = message
+            alert.addButton(withTitle: "知道了")
+            alert.runModal()
+        }
     }
 
     @objc private func toggleCut(_ sender: NSSwitch) {

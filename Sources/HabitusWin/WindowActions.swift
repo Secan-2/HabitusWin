@@ -45,23 +45,36 @@ final class WindowActions {
         }
 
         app.terminate()
-        escalate(app: app, pid: pid, checksLeft: 7)
+        escalate(app: app, pid: pid, checksLeft: 6)
     }
 
-    /// 每秒三次检查，2 秒仍未退出才干预。
-    /// 只要应用挂着保存确认这类 sheet，就不打断用户。
+    /// 每秒五次检查。
+    /// 窗口已经清空但进程还赖着，0.6 秒就收尾；还有窗口的应用给满 1.2 秒。
     private static func escalate(app: NSRunningApplication, pid: pid_t, checksLeft: Int) {
-        guard checksLeft > 0 else {
-            guard !hasBlockingDialog(pid: pid) else { return }
-            kill(pid, SIGTERM)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                if !app.isTerminated { kill(pid, SIGKILL) }
-            }
+        let elapsedSteps = 6 - checksLeft
+
+        // 没有窗口就说明没有保存确认在等着，可以直接收尾
+        if elapsedSteps >= 3, realWindows(of: pid).isEmpty {
+            finishOff(app: app, pid: pid)
             return
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+
+        guard checksLeft > 0 else {
+            guard !hasBlockingDialog(pid: pid) else { return }
+            finishOff(app: app, pid: pid)
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             guard !app.isTerminated else { return }
             escalate(app: app, pid: pid, checksLeft: checksLeft - 1)
+        }
+    }
+
+    private static func finishOff(app: NSRunningApplication, pid: pid_t) {
+        kill(pid, SIGTERM)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            if !app.isTerminated { kill(pid, SIGKILL) }
         }
     }
 
@@ -70,8 +83,7 @@ final class WindowActions {
             if let sheets = AX.attr(window, "AXSheets") as? [AXUIElement], !sheets.isEmpty {
                 return true
             }
-            let role = AX.string(window, kAXRoleAttribute) ?? ""
-            if role == "AXSheet" || role == "AXDialog" {
+            if AX.string(window, kAXSubroleAttribute) == "AXSheet" {
                 return true
             }
         }
@@ -113,6 +125,8 @@ final class WindowActions {
 
     static func windows(of pid: pid_t) -> [AXUIElement] {
         let app = AXUIElementCreateApplication(pid)
+        // 目标应用忙的时候，默认的辅助功能消息超时能卡住我们好几秒
+        AXUIElementSetMessagingTimeout(app, 0.4)
         guard let value = AX.attr(app, kAXWindowsAttribute) else { return [] }
         return (value as? [AXUIElement]) ?? []
     }

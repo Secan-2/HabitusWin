@@ -46,6 +46,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
     private var pathLabel: NSTextField?
     private var axLabel: NSTextField?
     private var tapLabel: NSTextField?
+    private var loginSwitchView: NSSwitch?
     private var hintLabel: NSTextField?
 
     init(settings: AppSettings) {
@@ -418,9 +419,9 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
         secondButtons.setContentHuggingPriority(.init(800), for: .horizontal)
 
         let loginSwitch = NSSwitch()
-        loginSwitch.state = LaunchAtLogin.isEnabled ? .on : .off
         loginSwitch.target = self
         loginSwitch.action = #selector(toggleLaunchAtLogin)
+        loginSwitchView = loginSwitch
 
         let page = makePage([
             ("启动", [
@@ -454,6 +455,8 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
 
         permissionLabel?.stringValue = diagnostics.trusted ? "已授予" : "未授予"
         permissionLabel?.textColor = diagnostics.trusted ? .systemGreen : .systemOrange
+
+        loginSwitchView?.state = LaunchAtLogin.isEnabled ? .on : .off
 
         pathLabel?.stringValue = "运行位置：\(diagnostics.path)"
         axLabel?.stringValue = "AX 接口自检：\(diagnostics.axErrorText)　签名：\(Permissions.signatureSummary())"

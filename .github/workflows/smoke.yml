@@ -3,11 +3,7 @@ on:
   push:
     branches: [main]
 jobs:
-  linux:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo alive
   mac:
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
-      - run: sw_vers && xcodebuild -version
+      - run: sw_vers
